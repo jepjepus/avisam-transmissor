@@ -12,6 +12,11 @@ Marc Brunet Hafid Karbouch Alejandro Jabalquinto Josep Lladonosa
 
 #include <Wire.h> // el nostre Wire
 
+// extern "C" permet incloure .h per a funcions C directament en l'arduino IDE
+extern "C" {
+#include "maquina.h"
+}
+
 #include <string.h>
 
 #define ADXL_ADDRESS 0x53 // adreça de l'accelerometre
@@ -96,30 +101,55 @@ void wire_inicia(void)
 void setup()  
 {
   serie_inicia();
-  //wire_inicia();
+  wire_inicia();
   xbee.setSerial(Serial); // Tell XBee to use Hardware Serial. It's also possible to use SoftwareSerial
-//  while(!adxl_present()) 
-//  {
-//  }
-//   adxl_configura();
+  while(!adxl_present()) 
+ {
+  }
+  adxl_configura();
+  init_cua();
 }
+
+void envia_coord(uint8_t * payload, int size)
+{
+  XBeeAddress64 addr64 = XBeeAddress64(0x0, 0x0); //send to coordinator
+  ZBTxRequest zbTx = ZBTxRequest(addr64, payload, size);   // Create a TX Request
+  xbee.send(zbTx); // Send your request
+}
+
+AtCommandResponse consulta_db(void)
+{
+ uint8_t dbCmd[] = {'D','B'};
+ AtCommandRequest atRequest = AtCommandRequest(dbCmd); //generem ATDB
+ //envia_coord( atRequest.getFrameData(0), atRequest.getFrameDataLength()); //enviar frame de peticio at
+ xbee.send(atRequest); //sendAtCommand(); //enviem ATDB
+ xbee.readPacket(1000);
+ AtCommandResponse atResponse;
+ //= AtCommandResponse(); // recepcio resposta ATDB
+ xbee.getResponse().getAtCommandResponse(atResponse);
+ return atResponse;
+}
+
 
 void avisa_caiguda(void)
 {
-  //Serial.print() 
+  AtCommandResponse db;  //Serial.print() 
   // Create an array for holding the data you want to send.
-  uint8_t payload[] = { 'H', 'i', ' ', 'H', 'a', 'f' };
+  uint8_t payload[] = { 'C', 'a', 'u', '!' };
+  envia_coord(payload,sizeof(payload)); // enviem avis de caiguda al coordinador
+  delay(3000); // esperem 1 segon
+  db = consulta_db(); // consultem db via ordres at
+  envia_coord( db.getValue(), db.getValueLength()); //enviar db
 
+  
   // Specify the address of the remote XBee (this is the SH + SL)
   // mac router (18): XBeeAddress64(0x0013a200, 0x40b8f807);
   //XBeeAddress64 addr64 = XBeeAddress64(0x0013a200, 0x408b99f4);
-  XBeeAddress64 addr64 = XBeeAddress64(0x0, 0x0);
-
+  //XBeeAddress64 addr64 = XBeeAddress64(0x0, 0x0); //send to coordinator
   // Create a TX Request
-  ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
-
+  //ZBTxRequest zbTx = ZBTxRequest(addr64, payload, sizeof(payload));
   // Send your request
-  xbee.send(zbTx);
+  // xbee.send(zbTx);
 }
 
 
@@ -129,16 +159,16 @@ int valor[3]; //lectura xyz de l'adxl
 void loop() // run over and over
 {
   int i=0;
-  //M_STATE estat; // estat obtingut de la maquina d'estats
+  M_STATE estat; // estat obtingut de la maquina d'estats
   while (-1)
   {
-    // adxl_llegeix_mb(ADXL_DATA, 6, valor); //llegim 3 int de l'adxl
-   //  estat=maquina(valor[0],valor[1],valor[2]); // crida a maquina d'estats
-    // if (estat == S_KO ) // caiguda!
+     adxl_llegeix_mb(ADXL_DATA, 6, valor); //llegim 3 int de l'adxl
+     estat=maquina(valor[0],valor[1],valor[2]); // crida a maquina d'estats
+     if (estat == S_KO ) // caiguda!
      {
        avisa_caiguda(); // mostrem missatge caiguda
-       // s.o.s, enviarem un avis VERMELL
-       delay(3000); // esperem 1 segon
+       delay(3000); // esperem 3 segons
+       init_cua(); // reiniciem algorisme a repos
      }
      //delay(20);
   }
