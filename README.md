@@ -18,3 +18,7 @@ biblioteca arduino IDE modificada per tal d'admetre la inicialització del bus i
 
 biblioteca Python que permet la recepció de trames ZigBee. S'ha modificat per permetre la recepció de les trames amb codis 0x90 i 0x91 les quals es reben en mode ZigBee.
 
+El codi del programari web (Django), donada la seva grandària, es pot baixar des de l'enllaç:
+
+https://github.com/marcbrunet/avis_uni. Es pot baixar en format .zip a https://github.com/marcbrunet/avis_uni/archive/master.zip
+
